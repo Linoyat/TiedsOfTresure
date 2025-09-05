@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class GamePiece : MonoBehaviour
 {
+    public int score;
+
     private int x;
     private int y;
 
@@ -64,8 +66,6 @@ public class GamePiece : MonoBehaviour
         movableComponent = GetComponent<MovablePiece>();
         colorComponent = GetComponent<ColorPiece>();
         clearableComponent = GetComponent<ClearablePiece>();
-
-
     }
     void Start()
     {
@@ -105,11 +105,11 @@ public class GamePiece : MonoBehaviour
         return movableComponent != null;
     }
 
-
     public bool IsColored()
     {
         return colorComponent != null;
     }
+
     public bool IsClearable()
     {
         return clearableComponent != null;

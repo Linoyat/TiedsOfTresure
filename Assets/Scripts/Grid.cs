@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
+using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class Grid : MonoBehaviour
@@ -19,6 +20,7 @@ public class Grid : MonoBehaviour
         BUBBLE,
         ROW_CLEAR,
         COLUMN_CLEAR,
+        RAINBOW,
         COUNT
     };
 
@@ -27,10 +29,12 @@ public class Grid : MonoBehaviour
     private bool inverse = false;
     private GamePiece pressedPiece;
     private GamePiece enteredPiece;
+    private bool gameOver = false;
 
     public int xDim;
     public int yDim;
     public float fillTime;
+    public Level level;
 
     public PiecePrefab[] piecePrefabs;
     public GameObject backgroundPrefab;
@@ -235,18 +239,43 @@ public class Grid : MonoBehaviour
 
     public void SwapPieces(GamePiece piece1, GamePiece piece2)
     {
+        if (gameOver)
+            return;
+
         if (piece1.IsMovable() && piece2.IsMovable())
         {
             pieces[piece1.X, piece1.Y] = piece2;
             pieces[piece2.X, piece2.Y] = piece1;
 
-            if (GetMatch(piece1, piece2.X, piece2.Y) != null || GetMatch(piece2, piece1.X, piece1.Y) != null)
+            if (GetMatch(piece1, piece2.X, piece2.Y) != null || GetMatch(piece2, piece1.X, piece1.Y) != null
+                || piece1.Type == PieceType.RAINBOW || piece2.Type == PieceType.RAINBOW)
             {
                 int piece1X = piece1.X;
                 int piece1Y = piece1.Y;
 
                 piece1.MovableComponent.Move(piece2.X, piece2.Y, fillTime);
                 piece2.MovableComponent.Move(piece1X, piece1Y, fillTime);
+
+
+                //If one is a rainbow and the other is a regular color fish type - it's a match
+                if (piece1.Type == PieceType.RAINBOW && piece1.IsClearable() && piece2.IsColored()) 
+                {
+                    ClearColorPiece clearColor = piece1.GetComponent<ClearColorPiece>();
+                    if (clearColor)
+                        clearColor.Color = piece2.ColorComponent.Color;
+
+                    ClearPiece(piece1.X, piece1.Y);
+                }
+
+                if (piece2.Type == PieceType.RAINBOW && piece2.IsClearable() && piece1.IsColored())
+                {
+                    ClearColorPiece clearColor = piece2.GetComponent<ClearColorPiece>();
+                    if (clearColor)
+                        clearColor.Color = piece1.ColorComponent.Color;
+
+                    ClearPiece(piece2.X, piece2.Y);
+                }
+
 
 
                 if (piece1.Type == PieceType.ROW_CLEAR || piece1.Type == PieceType.COLUMN_CLEAR)
@@ -267,6 +296,7 @@ public class Grid : MonoBehaviour
                 ClearAllValidMatches();
                 // fill func
                 StartCoroutine(Fill());
+                level.OnMove();
             }
             else
             {
@@ -452,13 +482,19 @@ public class Grid : MonoBehaviour
                             {
                                 specialPieceType = (PieceType)Random.Range((int)PieceType.ROW_CLEAR, (int)PieceType.COLUMN_CLEAR);
                             }
-                            else if(pressedPiece.Y==enteredPiece.Y)
+                            else if(pressedPiece.Y == enteredPiece.Y)
                             {
                                 specialPieceType = PieceType.ROW_CLEAR;}
                             else
                             {
                                 specialPieceType = PieceType.COLUMN_CLEAR; }
                         }
+
+                        else if(match.Count >= 5)
+                        {
+                            specialPieceType = PieceType.RAINBOW;
+                        }
+
                         for (int i=0; i<match.Count; i++)
                         {
                             if (ClearPiece(match[i].X, match[i].Y))
@@ -482,6 +518,10 @@ public class Grid : MonoBehaviour
                                     {
                                         newPiece.ColorComponent.SetColor(match[0].ColorComponent.Color);
                                     }
+                                    else if(specialPieceType == PieceType.RAINBOW && newPiece.IsColored())
+                                    {
+                                        newPiece.ColorComponent.SetColor(ColorPiece.ColorType.ANY);
+                                    }
                                 }
                             }
                         }
@@ -492,21 +532,20 @@ public class Grid : MonoBehaviour
         return needsRefill;
     }
 
-
     public bool ClearPiece(int x , int y)
     {
         if (pieces[x, y].IsClearable() && !pieces[x, y].ClearableComponent.IsBeingCleared)
         {
             pieces[x, y].ClearableComponent.Clear();
             SpawnNewPiece(x, y, PieceType.EMPTY);
-
             ClearObstacles(x, y);
 
             return true;
-
         }
+
         return false;
     }
+
     public void ClearObstacles(int x,int y)
     {
         for(int adjacentX = x-1; adjacentX<= x+1; adjacentX++)
@@ -520,6 +559,7 @@ public class Grid : MonoBehaviour
                 }
             }
         }
+
         for (int adjacentY = y - 1; adjacentY <= y + 1; adjacentY++)
         {
             if (adjacentY != y && adjacentY >= 0 && adjacentY < yDim)
@@ -531,7 +571,36 @@ public class Grid : MonoBehaviour
                 }
             }
         }
+    }
 
+    public void ClearRow(int row)
+    {
+        for (int x = 0; x < xDim; x++)
+            ClearPiece(x, row);
+    }
 
+    public void ClearColumn(int column)
+    {
+        for(int y = 0;  y < yDim; y++)
+            ClearPiece(column, y);
+    }
+
+    public void ClearColor(ColorPiece.ColorType color)
+    {
+        for(int x = 0; x < xDim; x++)
+        {
+            for (int y = 0; y < yDim; y++)
+            {
+                if (pieces[x, y].IsColored() && (pieces[x, y].ColorComponent.Color == color || color == ColorPiece.ColorType.ANY))
+                {
+                    ClearPiece(x, y);
+                }
+            }
+        }
+    }
+
+    public void GameOver()
+    {
+        gameOver = true;
     }
 }
