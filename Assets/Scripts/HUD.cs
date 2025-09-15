@@ -2,6 +2,8 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 
+using UnityEngine.SceneManagement;
+
 public class HUD : MonoBehaviour
 {
     public Hammer hammer;
@@ -197,4 +199,9 @@ public class HUD : MonoBehaviour
 
     }
 
+}
+    public void OnReturnClicked()
+    {
+        SceneManager.LoadScene("menuScene");
+    }
 }
